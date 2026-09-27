@@ -1,0 +1,7 @@
+node_modules/
+.env
+.env.*
+dist/
+build/
+gemini_zip_built-connect/
+*.log
