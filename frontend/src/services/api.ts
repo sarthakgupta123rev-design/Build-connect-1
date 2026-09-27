@@ -310,11 +310,11 @@ export async function updateBookingStatus(id: string, status: Booking['status'])
   return null;
 }
 
-export async function submitReview(reviewData: Omit<Review, 'id' | 'date' | 'verifiedBooking'>): Promise<Review> {
+export async function submitReview(reviewData: Omit<Review, 'id' | 'date' | 'verifiedBooking'> & { bookingId?: string }): Promise<Review> {
   const token = await getAuthToken();
   if (token) {
     const res = await submitReviewApi(token, {
-      booking_id: reviewData.workerId, // or booking_id
+      booking_id: (reviewData as any).bookingId || 'bk-100',
       worker_id: reviewData.workerId,
       rating: reviewData.rating,
       quality_rating: reviewData.qualityRating,

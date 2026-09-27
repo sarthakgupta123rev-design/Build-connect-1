@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Star, CheckCircle2, Sparkles } from 'lucide-react';
 import { submitReview } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,10 @@ import { VerifiedBadge } from '../components/VerifiedBadge';
 export const ReviewPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const bookingIdParam = searchParams.get('bookingId') || 'bk-100';
+  const workerIdParam = searchParams.get('workerId') || 'w-1';
 
   const [rating, setRating] = useState(5);
   const [qualityRating, setQualityRating] = useState(5);
@@ -24,7 +28,8 @@ export const ReviewPage: React.FC = () => {
     setSubmitting(true);
     try {
       await submitReview({
-        workerId: 'w-1',
+        bookingId: bookingIdParam,
+        workerId: workerIdParam,
         customerName: user?.name || 'Aarav Sharma',
         customerAvatar: user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
         rating,
