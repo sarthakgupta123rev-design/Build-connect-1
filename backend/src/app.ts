@@ -15,17 +15,27 @@ import locationRoutes from './routes/location.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware.js';
 
+import { apiLimiter, sensitiveLimiter } from './middleware/rateLimit.middleware.js';
+
 dotenv.config();
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware: Helmet HTTP headers
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Managed by frontend hosting/reverse proxy in prod
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // Logging middleware
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
+
+// Global API Rate Limiter
+app.use('/api', apiLimiter);
 
 // CORS configuration supporting dynamic Vite dev server ports
 const allowedOrigins = [
@@ -54,9 +64,13 @@ app.use(
   })
 );
 
-// Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing with strict payload limits (prevent DOS via large payloads)
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// Sensitive endpoint rate limiting
+app.use('/api/me', sensitiveLimiter);
+app.use('/api/payments', sensitiveLimiter);
 
 // API routes
 app.use('/api/health', healthRoutes);
