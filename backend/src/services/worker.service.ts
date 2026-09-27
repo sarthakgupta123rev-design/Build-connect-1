@@ -22,6 +22,8 @@ export interface WorkerRecord {
   skills: string[];
   city: string;
   area: string;
+  latitude?: number;
+  longitude?: number;
   phone?: string;
 }
 
