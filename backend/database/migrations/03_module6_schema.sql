@@ -16,28 +16,32 @@ CREATE INDEX IF NOT EXISTS idx_worker_locations_booking_id ON worker_locations(b
 
 ALTER TABLE worker_locations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Workers can update their own location"
-  ON worker_locations FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM workers 
-      WHERE workers.id = worker_locations.worker_id 
-      AND workers.profile_id = auth.uid()::text
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "Workers can update their own location"
+    ON worker_locations FOR INSERT
+    WITH CHECK (
+      EXISTS (
+        SELECT 1 FROM workers 
+        WHERE workers.id = worker_locations.worker_id 
+        AND workers.profile_id = auth.uid()::text
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Participants can view active job worker location"
-  ON worker_locations FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM workers 
-      WHERE workers.id = worker_locations.worker_id 
-      AND workers.profile_id = auth.uid()::text
-    )
-    OR
-    EXISTS (
-      SELECT 1 FROM bookings 
-      WHERE bookings.id = worker_locations.booking_id 
-      AND (bookings.customer_id = auth.uid()::text OR bookings.worker_id = auth.uid()::text)
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "Participants can view active job worker location"
+    ON worker_locations FOR SELECT
+    USING (
+      EXISTS (
+        SELECT 1 FROM workers 
+        WHERE workers.id = worker_locations.worker_id 
+        AND workers.profile_id = auth.uid()::text
+      )
+      OR
+      EXISTS (
+        SELECT 1 FROM bookings 
+        WHERE bookings.id = worker_locations.booking_id 
+        AND (bookings.customer_id = auth.uid()::text OR bookings.worker_id = auth.uid()::text)
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

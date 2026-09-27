@@ -25,14 +25,18 @@ CREATE INDEX IF NOT EXISTS idx_payments_worker_id ON payments(worker_id);
 
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view payments for their bookings"
-  ON payments FOR SELECT
-  USING (
-    auth.uid()::text = customer_id OR auth.uid()::text = worker_id
-  );
+DO $$ BEGIN
+  CREATE POLICY "Users can view payments for their bookings"
+    ON payments FOR SELECT
+    USING (
+      auth.uid()::text = customer_id OR auth.uid()::text = worker_id
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Customers can insert payments for their bookings"
-  ON payments FOR INSERT
-  WITH CHECK (
-    auth.uid()::text = customer_id
-  );
+DO $$ BEGIN
+  CREATE POLICY "Customers can insert payments for their bookings"
+    ON payments FOR INSERT
+    WITH CHECK (
+      auth.uid()::text = customer_id
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

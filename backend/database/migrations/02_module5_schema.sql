@@ -17,17 +17,21 @@ CREATE INDEX IF NOT EXISTS idx_messages_recipient_id ON messages(recipient_id);
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view messages for their bookings"
-  ON messages FOR SELECT
-  USING (
-    auth.uid()::text = sender_id OR auth.uid()::text = recipient_id
-  );
+DO $$ BEGIN
+  CREATE POLICY "Users can view messages for their bookings"
+    ON messages FOR SELECT
+    USING (
+      auth.uid()::text = sender_id OR auth.uid()::text = recipient_id
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can insert messages for their bookings"
-  ON messages FOR INSERT
-  WITH CHECK (
-    auth.uid()::text = sender_id
-  );
+DO $$ BEGIN
+  CREATE POLICY "Users can insert messages for their bookings"
+    ON messages FOR INSERT
+    WITH CHECK (
+      auth.uid()::text = sender_id
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 2. DISPUTES ENUM AND TABLE
 DO $$ BEGIN
@@ -53,19 +57,23 @@ CREATE INDEX IF NOT EXISTS idx_disputes_raised_by ON disputes(raised_by);
 
 ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view disputes for their bookings"
-  ON disputes FOR SELECT
-  USING (
-    auth.uid()::text = raised_by OR 
-    EXISTS (
-      SELECT 1 FROM bookings 
-      WHERE bookings.id = disputes.booking_id 
-      AND (bookings.customer_id = auth.uid()::text OR bookings.worker_id = auth.uid()::text)
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "Users can view disputes for their bookings"
+    ON disputes FOR SELECT
+    USING (
+      auth.uid()::text = raised_by OR 
+      EXISTS (
+        SELECT 1 FROM bookings 
+        WHERE bookings.id = disputes.booking_id 
+        AND (bookings.customer_id = auth.uid()::text OR bookings.worker_id = auth.uid()::text)
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can insert disputes for their bookings"
-  ON disputes FOR INSERT
-  WITH CHECK (
-    auth.uid()::text = raised_by
-  );
+DO $$ BEGIN
+  CREATE POLICY "Users can insert disputes for their bookings"
+    ON disputes FOR INSERT
+    WITH CHECK (
+      auth.uid()::text = raised_by
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
