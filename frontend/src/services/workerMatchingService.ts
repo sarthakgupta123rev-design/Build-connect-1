@@ -247,3 +247,61 @@ export function getSmartWorkerMatches(
     allRanked: scored
   };
 }
+
+/**
+ * Async Smart Matching Service function: attempts fetching recommendations from Express API,
+ * falling back to client-side heuristic engine if server is unreachable.
+ */
+export async function getSmartWorkerMatchesAsync(
+  requirement: string,
+  city?: string,
+  workersList: Worker[] = MOCK_WORKERS
+): Promise<{
+  analysis: RequirementAnalysis;
+  bestMatch: SmartMatchResult | null;
+  alternatives: SmartMatchResult[];
+  allRanked: SmartMatchResult[];
+}> {
+  const localResult = getSmartWorkerMatches(requirement, workersList);
+
+  try {
+    const { getAIRecommendations } = await import('../api/ai.api');
+    const response = await getAIRecommendations(requirement, city);
+
+    if (response.success && response.data && Array.isArray(response.data) && response.data.length > 0) {
+      const { mapBackendWorkerToWorker } = await import('../api/mappers');
+      const ranked: SmartMatchResult[] = response.data.map((item: any) => {
+        const workerObj = item.worker ? mapBackendWorkerToWorker(item.worker) : workersList[0];
+        return {
+          worker: workerObj,
+          matchScore: item.matchScore || 85,
+          breakdown: {
+            skillScore: 25,
+            distanceScore: 15,
+            availabilityScore: 15,
+            ratingScore: 15,
+            trustScore: 12,
+            priceScore: 4
+          },
+          reasons: item.reasoning ? [item.reasoning] : ['Matched trade and criteria'],
+          matchedSkills: item.matchedSkills || []
+        };
+      });
+
+      const bestMatch = ranked[0] ? { ...ranked[0], isBestMatch: true } : null;
+      const alternatives = ranked.slice(1, 4);
+
+      return {
+        analysis: localResult.analysis,
+        bestMatch: bestMatch || localResult.bestMatch,
+        alternatives: alternatives.length > 0 ? alternatives : localResult.alternatives,
+        allRanked: ranked.length > 0 ? ranked : localResult.allRanked
+      };
+    }
+  } catch (err) {
+    // Fall back to local calculation
+  }
+
+  return localResult;
+}
+

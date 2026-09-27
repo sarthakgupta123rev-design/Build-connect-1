@@ -64,6 +64,7 @@ app.use('/api/me', userRoutes);
 app.use('/api/workers', locationRoutes);
 app.use('/api/workers', workerRoutes);
 app.use('/api/worker', analyticsRoutes);
+app.use('/api/workers/me', analyticsRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/messages', messageRoutes);

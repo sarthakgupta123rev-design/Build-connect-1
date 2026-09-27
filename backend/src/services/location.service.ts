@@ -1,3 +1,4 @@
+import { supabase, isDbAvailable } from '../config/supabase.js';
 import type { UpdateLocationInput } from '../validators/location.validator.js';
 import * as bookingService from './booking.service.js';
 
@@ -43,6 +44,23 @@ export async function updateWorkerLocation(userId: string, input: UpdateLocation
     updated_at: new Date().toISOString()
   };
 
+  if (isDbAvailable) {
+    try {
+      const { data, error } = await supabase
+        .from('worker_locations')
+        .insert(updated)
+        .select()
+        .single();
+
+      if (!error && data) {
+        MOCK_LOCATIONS[workerId] = data;
+        return data;
+      }
+    } catch (err) {
+      // Fallback
+    }
+  }
+
   MOCK_LOCATIONS[workerId] = updated;
   return updated;
 }
@@ -55,6 +73,24 @@ export async function getWorkerLocation(userId: string, workerId: string, bookin
     }
   } else if (userId !== workerId && userId !== 'u-1' && userId !== 'w-1') {
     throw new Error('Forbidden: Unauthorized location access');
+  }
+
+  if (isDbAvailable) {
+    try {
+      const { data, error } = await supabase
+        .from('worker_locations')
+        .select('*')
+        .eq('worker_id', workerId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        return data;
+      }
+    } catch (err) {
+      // Fallback
+    }
   }
 
   const loc = MOCK_LOCATIONS[workerId];

@@ -12,6 +12,7 @@ export interface BackendWorker {
   availability: 'Available Today' | 'Available Tomorrow' | 'Busy';
   verified: boolean;
   average_rating: number;
+  review_count?: number;
   total_jobs: number;
   trust_score: number;
   skills?: string[];

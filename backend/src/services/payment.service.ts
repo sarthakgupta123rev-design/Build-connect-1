@@ -1,3 +1,4 @@
+import { supabase, isDbAvailable } from '../config/supabase.js';
 import type { CreatePaymentOrderInput, VerifyPaymentInput } from '../validators/payment.validator.js';
 import * as bookingService from './booking.service.js';
 
@@ -22,9 +23,25 @@ export interface Payment {
 const MOCK_PAYMENTS: Payment[] = [];
 
 export async function createPaymentOrder(customerId: string, input: CreatePaymentOrderInput): Promise<Payment> {
-  const existing = MOCK_PAYMENTS.find(p => p.booking_id === input.booking_id);
-  if (existing) {
+  const existingMock = MOCK_PAYMENTS.find(p => p.booking_id === input.booking_id);
+  if (existingMock) {
     throw new Error('Conflict: A payment order already exists for this booking');
+  }
+
+  if (isDbAvailable) {
+    try {
+      const { data: existingDb } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('booking_id', input.booking_id)
+        .maybeSingle();
+
+      if (existingDb) {
+        throw new Error('Conflict: A payment order already exists for this booking');
+      }
+    } catch (err: any) {
+      if (err.message && err.message.startsWith('Conflict')) throw err;
+    }
   }
 
   const booking = await bookingService.getBookingById(input.booking_id, customerId);
@@ -52,11 +69,62 @@ export async function createPaymentOrder(customerId: string, input: CreatePaymen
     updated_at: new Date().toISOString()
   };
 
+  if (isDbAvailable) {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert(payment)
+        .select()
+        .single();
+
+      if (!error && data) {
+        MOCK_PAYMENTS.push(data);
+        return data;
+      }
+    } catch (err) {
+      // Fallback
+    }
+  }
+
   MOCK_PAYMENTS.push(payment);
   return payment;
 }
 
 export async function verifyPayment(userId: string, input: VerifyPaymentInput): Promise<Payment> {
+  if (isDbAvailable) {
+    try {
+      const { data: dbPayment } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('booking_id', input.booking_id)
+        .maybeSingle();
+
+      if (dbPayment) {
+        if (dbPayment.customer_id !== userId && userId !== 'u-1') {
+          throw new Error('Forbidden: You are not authorized to verify this payment');
+        }
+
+        const { data: updated, error } = await supabase
+          .from('payments')
+          .update({
+            status: 'completed',
+            provider_payment_id: input.provider_payment_id,
+            provider_signature: input.provider_signature || 'sig_verified_mock',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', dbPayment.id)
+          .select()
+          .single();
+
+        if (!error && updated) {
+          return updated;
+        }
+      }
+    } catch (err: any) {
+      if (err.message && err.message.startsWith('Forbidden')) throw err;
+    }
+  }
+
   const payment = MOCK_PAYMENTS.find(p => p.booking_id === input.booking_id);
   if (!payment) {
     throw new Error('NotFound: Payment order not found for this booking');
@@ -75,6 +143,25 @@ export async function verifyPayment(userId: string, input: VerifyPaymentInput): 
 }
 
 export async function getPaymentById(id: string, userId: string): Promise<Payment | null> {
+  if (isDbAvailable) {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .or(`id.eq.${id},booking_id.eq.${id}`)
+        .maybeSingle();
+
+      if (!error && data) {
+        if (data.customer_id !== userId && data.worker_id !== userId && userId !== 'u-1') {
+          throw new Error('Forbidden: You are not authorized to view this payment');
+        }
+        return data;
+      }
+    } catch (err: any) {
+      if (err.message && err.message.startsWith('Forbidden')) throw err;
+    }
+  }
+
   const payment = MOCK_PAYMENTS.find(p => p.id === id || p.booking_id === id);
   if (!payment) return null;
 
@@ -86,5 +173,21 @@ export async function getPaymentById(id: string, userId: string): Promise<Paymen
 }
 
 export async function getUserPayments(userId: string): Promise<Payment[]> {
+  if (isDbAvailable) {
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .or(`customer_id.eq.${userId},worker_id.eq.${userId}`)
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data;
+      }
+    } catch (err) {
+      // Fallback
+    }
+  }
+
   return MOCK_PAYMENTS.filter(p => p.customer_id === userId || p.worker_id === userId || userId === 'u-1');
 }
