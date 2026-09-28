@@ -25,9 +25,8 @@ services:
         sync: false
 
   # Frontend Web Application
-  - type: web
+  - type: static
     name: buildconnect-app
-    runtime: static
     repo: https://github.com/sarthakgupta123rev-design/Build-connect-1
     rootDir: frontend
     buildCommand: npm install && npm run build
